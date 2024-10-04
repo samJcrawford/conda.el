@@ -701,8 +701,9 @@ This can be set by a buffer-local or project-local variable (e.g. a
 (define-minor-mode conda-env-autoactivate-mode
   "Toggle conda-env-autoactivate mode.
 
-This mode automatically tries to activate a conda environment for the current
-buffer."
+This mode automatically tries to activate a conda environment for
+the current buffer.  Which conda environment to activate is
+determined by `conda-env-activate-for-buffer', which see."
   ;; The initial value.
   :init-value nil
   ;; The indicator for the mode line.
