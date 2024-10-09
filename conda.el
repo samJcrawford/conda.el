@@ -129,8 +129,17 @@ This should be consistent across platforms.")
 ;; ensure it's considered safe
 (put 'conda-env-name-for-buffer 'safe-local-variable 'stringp)
 
+(defcustom conda-mode-line-format "$%s "
+  "Format string used to indicate active environment in modeline.
+Should contain a single '%s', indicating where the name of the
+environment goes."
+  :type 'string
+  :group 'conda)
+
 (defvar conda-mode-line '(:propertize
-                          (:eval (when conda-env-current-name (concat "$" conda-env-current-name " ")))
+                          (:eval (when conda-env-current-name
+				   (format conda-mode-line-format
+					   conda-env-current-name)))
                           help-echo "Current conda env"))
 
 ;; internal utility functions
