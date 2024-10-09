@@ -715,8 +715,16 @@ determined by `conda-env-activate-for-buffer', which see."
   :global t
   ;; Forms
   (if conda-env-autoactivate-mode ;; already on, now switching off
-      (add-hook 'window-selection-change-functions #'conda--switch-buffer-auto-activate)
-    (remove-hook 'window-selection-change-functions #'conda--switch-buffer-auto-activate)))
+      (progn
+	(add-hook 'window-selection-change-functions
+		  #'conda--switch-buffer-auto-activate)
+	(add-hook 'window-buffer-change-functions
+		  #'conda--switch-buffer-auto-activate))
+    (progn
+      (remove-hook 'window-selection-change-functions
+		   #'conda--switch-buffer-auto-activate)
+      (remove-hook 'window-buffer-change-functions
+		   #'conda--switch-buffer-auto-activate))))
 
 (provide 'conda)
 
