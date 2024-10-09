@@ -680,11 +680,12 @@ This can be set by a buffer-local or project-local variable (e.g. a
                     ((bound-and-true-p conda-project-env-path) conda-project-env-path)
                     ((not (eql inferred-env nil)) (conda-env-name-to-dir inferred-env))
                     (t nil))))
-
-    (if (not (eql env-path nil))
-        (conda-env-activate env-path)
-      (if conda-message-on-environment-switch
-          (message "No Conda environment found for <%s>" (buffer-file-name))))))
+    (cond
+     ((equal env-path conda-env-current-path))
+     ((not env-path)
+      (when conda-message-on-environment-switch
+	(message "No Conda environment found for <%s>" (buffer-file-name))) )
+     (t (conda-env-activate env-path)))))
 
 (defun conda--switch-buffer-auto-activate (&rest args)
   "Add Conda environment activation if a buffer has a file, handling ARGS."
