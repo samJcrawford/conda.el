@@ -517,42 +517,42 @@ Returns a list of new path elements."
 (defun conda-env-activate-path (path)
   "Switch to environment PATH, prompting if called interactively."
   (interactive (list (read-directory-name "Conda environment directory: ")))
-  (if (not (conda--env-dir-is-valid path))
-      (error "Invalid conda environment path specified: %s" path)
-    ;; first, deactivate any existing env
-    (conda-env-deactivate)
-    ;; set the state of the environment, including setting (or re-setting)
-    ;; a buffer-local variable that allows us to skip discovery when we
-    ;; switch back into the buffer.
-    (setq conda-env-current-path path)
-    (setq conda-env-current-name (conda-env-dir-to-name path))
-    (set (make-local-variable 'conda-project-path) path)
-    ;; run hooks
-    (run-hooks 'conda-preactivate-hook)
-    ;; push it onto the history
-    (add-to-list 'conda-env-history conda-env-current-name)
-    (let* ((env-dir (expand-file-name path))
-           (env-exec-dir (concat (file-name-as-directory env-dir)
-                                 conda-env-executables-dir)))
-      ;; Use pythonic to activate the environment so that anaconda-mode and
-      ;; others know how to work on this
-      (pythonic-activate env-dir)
-      (setq python-shell-virtualenv-root env-dir)
-      (let ((params (conda--get-activation-parameters env-dir)))
-        (if (not (eq nil (conda-env-params-vars-export params)))
-            (conda--update-env-from-params params)
-          (progn ;; otherwise we fall back to legacy heuristics
-            (setenv "VIRTUAL_ENV" env-dir)
-            (setenv "CONDA_PREFIX" env-dir)))
-        (setq exec-path (s-split (if (eq system-type 'windows-nt) ";" ":")
-                                 (conda-env-params-path params)))
-        ;; (message "new path? %s" (conda-env-params-path params))
-        (setenv "PATH" (conda-env-params-path params)))
-      (setq eshell-path-env (getenv "PATH"))
-      (conda--set-env-gud-pdb-command-name)
-      (run-hooks 'conda-postactivate-hook)))
-  (if (or conda-message-on-environment-switch (called-interactively-p 'interactive))
-      (message "Switched to conda environment: %s" path)))
+  (unless (conda--env-dir-is-valid path)
+    (error "Invalid conda environment path specified: %s" path))
+  ;; first, deactivate any existing env
+  (conda-env-deactivate)
+  ;; set the state of the environment, including setting (or re-setting)
+  ;; a buffer-local variable that allows us to skip discovery when we
+  ;; switch back into the buffer.
+  (setq conda-env-current-path path)
+  (setq conda-env-current-name (conda-env-dir-to-name path))
+  (set (make-local-variable 'conda-project-path) path)
+  ;; run hooks
+  (run-hooks 'conda-preactivate-hook)
+  ;; push it onto the history
+  (add-to-list 'conda-env-history conda-env-current-name)
+  (let* ((env-dir (expand-file-name path))
+         (env-exec-dir (concat (file-name-as-directory env-dir)
+                               conda-env-executables-dir)))
+    ;; Use pythonic to activate the environment so that anaconda-mode and
+    ;; others know how to work on this
+    (pythonic-activate env-dir)
+    (setq python-shell-virtualenv-root env-dir)
+    (let ((params (conda--get-activation-parameters env-dir)))
+      (if (conda-env-params-vars-export params)
+          (conda--update-env-from-params params)
+        (progn ;; otherwise we fall back to legacy heuristics
+          (setenv "VIRTUAL_ENV" env-dir)
+          (setenv "CONDA_PREFIX" env-dir)))
+      (setq exec-path (s-split (if (eq system-type 'windows-nt) ";" ":")
+                               (conda-env-params-path params)))
+      ;; (message "new path? %s" (conda-env-params-path params))
+      (setenv "PATH" (conda-env-params-path params)))
+    (setq eshell-path-env (getenv "PATH"))
+    (conda--set-env-gud-pdb-command-name)
+    (run-hooks 'conda-postactivate-hook))
+  (when (or conda-message-on-environment-switch (called-interactively-p 'interactive))
+    (message "Switched to conda environment: %s" path)))
 
 ;; for hilarious reasons to do with bytecompiling, this has to be here
 ;; instead of below
