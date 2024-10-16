@@ -83,8 +83,10 @@ ANACONDA_HOME environment variable."
 
 (defcustom conda-activate-base-by-default nil
   "Whether to activate the base environment by default if no other is preferred.
-Default nil."
-  :type 'boolean
+Either a boolean or 'auto, which means infer from conda config.
+Default 'auto."
+  :type '(choice boolean
+		 (const auto :tag "Determine from conda config"))
   :group 'conda)
 
 ;; hooks -- TODO once we actually have environment creation / deletion
@@ -313,8 +315,9 @@ Set for the lifetime of the process.")
 	  (env-name (with-memoization (gethash working-dir conda--buffer-envs)
 		      (cond
 		       ((conda--get-name-from-env-yml (conda--find-env-yml working-dir)))
-		       ((or conda-activate-base-by-default
-			    (alist-get 'auto_activate_base (conda--get-config)))
+		       ((if (eq conda-activate-base-by-default 'auto)
+			    (alist-get 'auto_activate_base (conda--get-config))
+			  conda-activate-base-by-default)
 			"base")))))
     (when env-name
       (conda-env-name-to-dir env-name))))
