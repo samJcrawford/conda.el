@@ -218,10 +218,13 @@ Set for the lifetime of the process.")
 ;; (conda--get-config)
 ;; keys envs-dirs and root-prefix seem immediately relevant
 
+(defconst conda--log-buffer " *Conda Env Activation*"
+  "Name of buffer to write logging info to")
+
 (defun conda--update-env-from-params (params)
   "Update the environment from PARAMS."
-  (let ((exports (or (conda-env-params-vars-export params) '())))
-    (with-current-buffer (get-buffer-create " *Conda Env Activation*")
+  (with-current-buffer (get-buffer-create conda--log-buffer)
+    (let ((exports (or (conda-env-params-vars-export params) '())))
       (mapc (lambda (pair)
               (insert (format "About to set %s to %s\n" (car pair) (cdr pair)))
               (setenv (format "%s" (car pair)) (format "%s" (cdr pair))))
@@ -505,6 +508,8 @@ Returns a list of new path elements."
   "Deactivate the current conda env."
   (interactive)
   (when (bound-and-true-p conda-env-current-path)
+    (with-current-buffer (get-buffer-create conda--log-buffer)
+      (insert (format "DEACTIVATING ENVIRONMENT %s\n" conda-env-current-name)))
     (run-hooks 'conda-predeactivate-hook)
     (setq python-shell-virtualenv-root nil)
     (let ((params (conda--get-deactivation-parameters conda-env-current-path)))
@@ -528,6 +533,8 @@ Returns a list of new path elements."
 (defun conda-env-activate (name)
   "Switch to environment NAME, prompting if called interactively."
   (interactive (list (conda--read-env-name)))
+  (with-current-buffer (get-buffer-create conda--log-buffer)
+      (insert (format "ACTIVATING ENVIRONMENT %s\n" name)))
   (conda-env-activate-path (conda-env-name-to-dir name)))
 
 ;;;###autoload
