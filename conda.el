@@ -81,10 +81,12 @@ ANACONDA_HOME environment variable."
   :type 'boolean
   :group 'conda)
 
-(defcustom conda-activate-base-by-default nil
+(defcustom conda-activate-base-by-default 'auto
   "Whether to activate the base environment by default if no other is preferred.
-Default nil."
-  :type 'boolean
+Either a boolean or 'auto, which means infer from conda config.
+Default 'auto."
+  :type '(choice boolean
+		 (const auto :tag "Determine from conda config"))
   :group 'conda)
 
 ;; hooks -- TODO once we actually have environment creation / deletion
@@ -300,22 +302,18 @@ Set for the lifetime of the process.")
           (match-string 1 env-yml-contents)
         nil))))
 
-(defvar conda--buffer-envs
-  (make-hash-table :test #'equal)
-  "Cache for `conda--infer-env-from-buffer'")
-
 (defun conda--infer-env-from-buffer ()
   "Search up the project tree for an `environment.yml` defining a conda env."
   (let*  ((filename (buffer-file-name))
           (working-dir (if filename
                            (f-dirname filename)
 			 default-directory))
-	  (env-name (with-memoization (gethash working-dir conda--buffer-envs)
-		      (cond
+	  (env-name (cond
 		       ((conda--get-name-from-env-yml (conda--find-env-yml working-dir)))
-		       ((or conda-activate-base-by-default
-			    (alist-get 'auto_activate_base (conda--get-config)))
-			"base")))))
+		       ((if (eq conda-activate-base-by-default 'auto)
+			    (alist-get 'auto_activate_base (conda--get-config))
+			  conda-activate-base-by-default)
+			"base"))))
     (when env-name
       (conda-env-name-to-dir env-name))))
 
