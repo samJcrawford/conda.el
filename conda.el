@@ -294,20 +294,26 @@ Set for the lifetime of the process.")
           (match-string 1 env-yml-contents)
         nil))))
 
+(defvar conda--buffer-envs
+  (make-hash-table :test #'equal)
+  "Cache for `conda--infer-env-from-buffer'")
+
 (defun conda--infer-env-from-buffer ()
   "Search up the project tree for an `environment.yml` defining a conda env."
-  (let* ((filename (buffer-file-name))
-         (working-dir (if filename
-                          (f-dirname filename)
-                        default-directory))
-	 (env-name (cond
-		    ((conda--get-name-from-env-yml (conda--find-env-yml working-dir)))
-		    ((or conda-activate-base-by-default
-			 (alist-get 'auto_activate_base (conda--get-config)))
-		     "base"))))
+  (let*  ((filename (buffer-file-name))
+          (working-dir (if filename
+                           (f-dirname filename)
+			 default-directory))
+	  (env-name (or (gethash working-dir conda--buffer-envs)
+			(puthash working-dir
+				 (cond
+				  ((conda--get-name-from-env-yml (conda--find-env-yml working-dir)))
+				  ((or conda-activate-base-by-default
+				       (alist-get 'auto_activate_base (conda--get-config)))
+				   "base"))
+				 conda--buffer-envs))))
     (when env-name
       (conda-env-name-to-dir env-name))))
-
 
 (cl-defstruct conda-env-params
   "Parameters necessary for (de)activating a Conda environment."
@@ -325,45 +331,59 @@ The most common additional argument is the environment directory."
          (args (append (list fmt subcommand) subcommand-args)))
     (apply #'conda--call-json args)))
 
+(defvar conda--activation-parameters
+  (make-hash-table :test #'equal)
+  "Cache for `conda--get-activation-parameters'")
+
 (defun conda--get-activation-parameters (env-dir)
   "Return activation values for the environment in ENV-DIR.
 Returns a `conda-env-params' struct.  At minimum, this will contain an
 updated PATH."
-  (if (conda--supports-json-activator)
-      (let ((result (conda--call-json-subcommand "activate" env-dir)))
-        (make-conda-env-params
-         :path (s-join path-separator (alist-get 'PATH (alist-get 'path result)))
-         :vars-export (alist-get 'export (alist-get 'vars result))
-         :vars-set (alist-get 'set (alist-get 'vars result))
-         :vars-unset (alist-get 'unset (alist-get 'vars result))
-         :scripts-activate (alist-get 'activate (alist-get 'scripts result))
-         :scripts-deactivate  (alist-get 'deactivate (alist-get 'scripts result))))
-    (if (not (conda--supports-old-activate-format))
-        (error "Installed Conda version supports neither JSON nor the old format.  This shouldn't happen!")
-      (make-conda-env-params
-       :path (concat
-              (conda--get-deprecated-path-prefix env-dir)
-              path-separator
-              (getenv "PATH"))))))
+  (or (gethash env-dir conda--activation-parameters)
+      (puthash env-dir
+	       (if (conda--supports-json-activator)
+		   (let ((result (conda--call-json-subcommand "activate" env-dir)))
+		     (make-conda-env-params
+		      :path (s-join path-separator (alist-get 'PATH (alist-get 'path result)))
+		      :vars-export (alist-get 'export (alist-get 'vars result))
+		      :vars-set (alist-get 'set (alist-get 'vars result))
+		      :vars-unset (alist-get 'unset (alist-get 'vars result))
+		      :scripts-activate (alist-get 'activate (alist-get 'scripts result))
+		      :scripts-deactivate  (alist-get 'deactivate (alist-get 'scripts result))))
+		 (if (not (conda--supports-old-activate-format))
+		     (error "Installed Conda version supports neither JSON nor the old format.  This shouldn't happen!")
+		   (make-conda-env-params
+		    :path (concat
+			   (conda--get-deprecated-path-prefix env-dir)
+			   path-separator
+			   (getenv "PATH")))))
+	       conda--activation-parameters)))
+
+(defvar conda--deactivation-parameters
+  (make-hash-table :test #'equal)
+  "Cache for `conda--get-deactivation-parameters'")
 
 (defun conda--get-deactivation-parameters (env-dir)
   "Return activation values for the environment in ENV-DIR.
 Returns a `conda-env-params' struct.  At minimum, this will contain an
 updated PATH."
-  (if (conda--supports-json-activator)
-      (let ((result (conda--call-json-subcommand "deactivate")))
-        (make-conda-env-params
-         :path (s-join path-separator (alist-get 'PATH (alist-get 'path result)))
-         :vars-export (alist-get 'export (alist-get 'vars result))
-         :vars-set (alist-get 'set (alist-get 'vars result))
-         :vars-unset (alist-get 'unset (alist-get 'vars result))
-         :scripts-activate (alist-get 'activate (alist-get 'scripts result))
-         :scripts-deactivate  (alist-get 'deactivate (alist-get 'scripts result))))
-    (make-conda-env-params
-     :path (s-with (getenv "PATH")
-             (s-split path-separator)
-             (conda-env-stripped-path)
-             (s-join path-separator)))))
+  (or (gethash env-dir conda--deactivation-parameters)
+      (puthash env-dir
+	       (if (conda--supports-json-activator)
+		   (let ((result (conda--call-json-subcommand "deactivate")))
+		     (make-conda-env-params
+		      :path (s-join path-separator (alist-get 'PATH (alist-get 'path result)))
+		      :vars-export (alist-get 'export (alist-get 'vars result))
+		      :vars-set (alist-get 'set (alist-get 'vars result))
+		      :vars-unset (alist-get 'unset (alist-get 'vars result))
+		      :scripts-activate (alist-get 'activate (alist-get 'scripts result))
+		      :scripts-deactivate  (alist-get 'deactivate (alist-get 'scripts result))))
+		 (make-conda-env-params
+		  :path (s-with (getenv "PATH")
+			  (s-split path-separator)
+			  (conda-env-stripped-path)
+			  (s-join path-separator))))
+	       conda--deactivation-parameters)))
 
 (defun conda--get-deprecated-path-prefix (env-dir)
   "Get a path string to utilize the conda env in ENV-DIR.
