@@ -296,13 +296,18 @@ Set for the lifetime of the process.")
 
 (defun conda--infer-env-from-buffer ()
   "Search up the project tree for an `environment.yml` defining a conda env."
-  (cond
-   ((conda--get-name-from-env-yml (conda--find-env-yml working-dir)))
-   ((or
-     conda-activate-base-by-default
-     (alist-get 'auto_activate_base (conda--get-config)))
-    "base")
-   (t nil)))
+  (let* ((filename (buffer-file-name))
+         (working-dir (if filename
+                          (f-dirname filename)
+                        default-directory))
+	 (env-name (cond
+		    ((conda--get-name-from-env-yml (conda--find-env-yml working-dir)))
+		    ((or conda-activate-base-by-default
+			 (alist-get 'auto_activate_base (conda--get-config)))
+		     "base"))))
+    (when env-name
+      (conda-env-name-to-dir env-name))))
+
 
 (cl-defstruct conda-env-params
   "Parameters necessary for (de)activating a Conda environment."
@@ -670,11 +675,9 @@ This can be set by a buffer-local or project-local variable (e.g. a
 `.dir-locals.el` that defines `conda-project-env-path`), or inferred from an
 `environment.yml` or similar at the project level."
   (interactive)
-  (let* ((inferred-env (conda--infer-env-from-buffer))
-         (env-path (cond
-                    ((bound-and-true-p conda-project-env-path) conda-project-env-path)
-                    ((not (eql inferred-env nil)) (conda-env-name-to-dir inferred-env))
-                    (t nil))))
+  (let ((env-path (or
+                   (bound-and-true-p conda-project-env-path)
+                   (conda--infer-env-from-buffer))))
     (cond
      ((equal env-path conda-env-current-path))
      ((not env-path)
