@@ -47,6 +47,7 @@
         "/usr/local/anaconda3"
         "/usr/local/miniconda3"
         "/usr/local/Caskroom/miniconda/base"
+        "/opt/homebrew/Caskroom/miniconda/base"
         "~/.conda")
   "Location of possible candidates for conda environment directory."
   :type '(list string)
